@@ -1,4 +1,3 @@
-
 import pytest
 from pydantic import ValidationError
 
@@ -40,6 +39,8 @@ def test_rejects_placeholder(settings_cls, monkeypatch):
 
 
 def test_rejects_pooler_url(settings_cls, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@aws-0.pooler.supabase.com:6543/postgres")
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql://u:p@aws-0.pooler.supabase.com:6543/postgres"
+    )
     with pytest.raises(ValidationError):
         settings_cls(_env_file=None)
