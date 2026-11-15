@@ -1,12 +1,23 @@
+from contextlib import asynccontextmanager
+
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import auth
 from app.config import settings
+from app.database.supabase import create_admin_client
 
 log = structlog.get_logger()
 
-app = FastAPI(title="Document Copilot")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.supabase_admin = await create_admin_client()
+    yield
+
+
+app = FastAPI(title="Document Copilot", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -14,6 +25,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(auth.router)
 
 
 @app.get("/health")
