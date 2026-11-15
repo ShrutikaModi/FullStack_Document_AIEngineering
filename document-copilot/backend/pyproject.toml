@@ -39,3 +39,7 @@ packages = ["app"]
 [tool.pytest.ini_options]
 # Lets `from app...` work in tests even if the editable-install .pth is skipped.
 pythonpath = ["."]
+
+[tool.ruff]
+# Alembic generates migrations in its own style; we only hand-edit them.
+extend-exclude = ["alembic/versions"]

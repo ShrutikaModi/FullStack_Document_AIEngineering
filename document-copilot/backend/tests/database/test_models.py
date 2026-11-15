@@ -10,6 +10,7 @@ EXPECTED_TABLES = {
     "chat_threads",
     "chat_messages",
     "message_citations",
+    "auth.users",  # stub of Supabase's own table
 }
 
 

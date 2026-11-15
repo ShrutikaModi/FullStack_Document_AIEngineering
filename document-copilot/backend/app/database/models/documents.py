@@ -3,7 +3,7 @@ from typing import Any
 from uuid import UUID
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Computed, ForeignKey, UniqueConstraint
+from sqlalchemy import Computed, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,10 +27,24 @@ class SourceDocument(UUIDPrimaryKey, CreatedAt, Base):
 
 
 class DocumentChunk(UUIDPrimaryKey, CreatedAt, Base):
-    """A retrieval-ready passage. HNSW and GIN indexes are added in the migration."""
+    """A retrieval-ready passage."""
 
     __tablename__ = "document_chunks"
-    __table_args__ = (UniqueConstraint("document_id", "chunk_index"),)
+    __table_args__ = (
+        UniqueConstraint("document_id", "chunk_index"),
+        # Semantic search (cosine distance), full-text search, and metadata filters.
+        Index(
+            "ix_document_chunks_embedding",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+        Index(
+            "ix_document_chunks_search_vector", "search_vector", postgresql_using="gin"
+        ),
+        Index("ix_document_chunks_metadata", "metadata", postgresql_using="gin"),
+    )
 
     document_id: Mapped[UUID] = mapped_column(
         ForeignKey("source_documents.id", ondelete="CASCADE"), index=True
