@@ -23,12 +23,27 @@ You need these values in backend and frontend env config (exact variable names w
 
 | Value | Where to find it | Used by |
 | ----- | ---------------- | ------- |
-| **Project URL** | Dashboard → **Project Settings** → **API** → Project URL | Frontend + backend |
-| **anon (public) key** | Same page → `anon` `public` key | Frontend (browser-safe) |
-| **service_role (secret) key** | Same page → `service_role` `secret` key | Backend only — never expose to the browser |
+| **Project URL** | Dashboard → **Project Settings** → **Data API** → Project URL | Frontend + backend |
+| **anon (public) key** | Dashboard → **Project Settings** → **API Keys** → **Legacy anon, service_role API keys** tab → `anon` `public` | Frontend (browser-safe) + backend |
+| **service_role (secret) key** | Same tab → `service_role` `secret` | Backend only — never expose to the browser |
 | **Project ref** | Dashboard URL `supabase.com/dashboard/project/<ref>` or `supabase projects list` | CLI commands |
-| **Direct database connection string** | Dashboard → **Project Settings** → **Database** → Connection string | Alembic migrations and backend DB access |
+| **Direct database connection string** | Dashboard → **Connect** button (top bar) → **Direct connection** | Alembic migrations and backend DB access |
 | **Database password** | What you set at project creation | Direct Postgres connection |
+
+The **API Keys** page also has a **Publishable and secret API keys** tab (the newer key system). The publishable key can be used as the anon key and the secret key as the service_role key; either set works with `supabase-js`.
+
+### Where each value goes
+
+| Value | File | Variable |
+| ----- | ---- | -------- |
+| Project URL | `backend/.env` | `SUPABASE_URL` |
+| Project URL | `frontend/.env` | `VITE_SUPABASE_URL` |
+| anon key | `backend/.env` | `SUPABASE_ANON_KEY` |
+| anon key | `frontend/.env` | `VITE_SUPABASE_ANON_KEY` |
+| service_role key | `backend/.env` **only** | `SUPABASE_SERVICE_ROLE_KEY` |
+| Direct connection string (with password) | `backend/.env` | `DATABASE_URL` |
+
+Copy `.env.example` to `.env` in each service first. Both `.env` files are gitignored.
 
 From the CLI you can also print API keys:
 
