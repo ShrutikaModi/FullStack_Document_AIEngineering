@@ -6,10 +6,49 @@ This project uses a separate Python + FastAPI backend because the server is resp
 
 ```bash
 cd backend
+# Reads pyproject.toml + uv.lock, creates backend/.venv, installs locked versions
 uv sync
+# Adds runtime dependencies to pyproject.toml and uv.lock
 uv add fastapi uvicorn pydantic pydantic-settings httpx structlog openai supabase pydantic-ai sqlalchemy alembic "psycopg[binary]" pgvector
+# Adds development-only tools (not installed in production)
 uv add --dev pytest ruff
 ```
+
+On a fresh clone, `uv sync` alone is enough: `pyproject.toml` already lists the runtime dependencies. Run the `uv add` lines only when starting from an empty `backend/` or when adding a new package.
+
+### What each command does
+
+- `cd backend` — `uv` looks for `pyproject.toml` in the current folder.
+- `uv sync` — creates the virtual environment and installs the exact versions pinned in `uv.lock`. Adds nothing new.
+- `uv add <packages>` — installs the packages and records them in `pyproject.toml` and `uv.lock`. Quote `"psycopg[binary]"` so zsh doesn't treat the brackets as a glob.
+- `uv add --dev pytest ruff` — installs development-only tools in a separate dependency group.
+
+### Runtime dependencies
+
+| Package | Use |
+| ------- | --- |
+| `fastapi` | Web framework for the API (`/health`, `/chat/stream`, thread endpoints) |
+| `uvicorn` | ASGI server that runs the FastAPI app |
+| `pydantic` | Typed models for requests, responses, and `GroundedAnswer` |
+| `pydantic-settings` | Loads and validates `.env` in `app/config.py`; fails fast on missing values |
+| `httpx` | HTTP client for outbound calls |
+| `structlog` | Structured logging |
+| `openai` | OpenAI SDK for embeddings and LLM calls |
+| `supabase` | Supabase client for token verification and server-side data access |
+| `pydantic-ai` | Typed agent framework for the document agent and its tools |
+| `sqlalchemy` | Table models that Alembic reads to generate migrations |
+| `alembic` | Database migrations (`uv run alembic upgrade head`) |
+| `psycopg[binary]` | Postgres driver used by SQLAlchemy and Alembic; `[binary]` ships a prebuilt version, so no C compiler is needed |
+| `pgvector` | Python support for the `vector` column type (embeddings) |
+
+### Development dependencies
+
+| Package | Use |
+| ------- | --- |
+| `pytest` | Runs backend tests (retrieval fusion, grounding validation, auth) |
+| `ruff` | Linter and formatter |
+
+Run them with `uv run pytest` and `uv run ruff check .`.
 
 ## Database migrations
 
