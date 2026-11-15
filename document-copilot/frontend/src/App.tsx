@@ -1,7 +1,17 @@
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+
+import HomePage from '@/pages/HomePage'
+import LoginPage from '@/pages/LoginPage'
+import SignUpPage from '@/pages/SignUpPage'
+
 export default function App() {
   return (
-    <main className="flex min-h-screen items-center justify-center">
-      <h1 className="text-2xl font-semibold">Document Copilot</h1>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
