@@ -4,7 +4,7 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth
+from app.api import auth, chat
 from app.config import settings
 from app.database.supabase import create_admin_client
 
@@ -28,6 +28,7 @@ app.add_middleware(
 
 
 app.include_router(auth.router)
+app.include_router(chat.router)
 
 
 @app.get("/health")
