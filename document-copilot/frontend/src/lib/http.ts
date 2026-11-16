@@ -1,5 +1,5 @@
 import { env } from '@/lib/env'
-import { supabase } from '@/lib/supabase'
+import { getAccessToken } from '@/lib/supabase'
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -32,8 +32,7 @@ export class ApiError extends Error {
 }
 
 async function authHeader(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession()
-  const token = data.session?.access_token
+  const token = await getAccessToken()
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
