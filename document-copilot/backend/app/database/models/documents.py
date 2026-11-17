@@ -54,7 +54,8 @@ class DocumentChunk(UUIDPrimaryKey, CreatedAt, Base):
     section: Mapped[str | None]
     content: Mapped[str]
     token_count: Mapped[int]
-    embedding: Mapped[list[float]] = mapped_column(
+    # Empty until the embedding step runs; chunks are loaded first so text search works.
+    embedding: Mapped[list[float] | None] = mapped_column(
         Vector(settings.openai_embedding_dimensions)
     )
     search_vector: Mapped[Any] = mapped_column(

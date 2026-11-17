@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     database_url: str = Field(min_length=1)
 
     openai_api_key: str = Field(min_length=1)
+    # Set for Azure / Microsoft Foundry, e.g. https://<resource>.services.ai.azure.com/openai/v1
+    # Leave unset to use api.openai.com. On Azure the "model" names below are deployment names.
+    openai_base_url: AnyHttpUrl | None = None
+    openai_chat_model: str = "gpt-4.1-mini"
     openai_embedding_model: str = "text-embedding-3-small"
     openai_embedding_dimensions: int = 1536
 
