@@ -5,6 +5,7 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic==1.20.1",
     "fastapi==0.162.2",
+    "greenlet==3.5.6",
     "httpx==0.28.1",
     "openai==3.46.0",
     "pgvector==0.5.1",

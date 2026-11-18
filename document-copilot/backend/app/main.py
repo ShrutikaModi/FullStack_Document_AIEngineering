@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth, chat
 from app.config import settings
+from app.database.engine import create_db_engine
 from app.database.supabase import create_admin_client
 
 log = structlog.get_logger()
@@ -14,7 +15,9 @@ log = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.supabase_admin = await create_admin_client()
+    app.state.db_engine = create_db_engine()
     yield
+    await app.state.db_engine.dispose()
 
 
 app = FastAPI(title="Document Copilot", lifespan=lifespan)
