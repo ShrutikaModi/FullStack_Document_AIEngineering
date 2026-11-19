@@ -41,6 +41,9 @@ packages = ["app"]
 [tool.pytest.ini_options]
 # Lets `from app...` work in tests even if the editable-install .pth is skipped.
 pythonpath = ["."]
+markers = ["integration: needs the live Supabase database and OpenAI/Azure credentials"]
+# Plain `pytest` stays fast and offline. Run the live tests with `pytest -m integration`.
+addopts = "-m 'not integration'"
 
 [tool.ruff]
 # Alembic generates migrations in its own style; we only hand-edit them.

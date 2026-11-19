@@ -120,13 +120,14 @@ Goal: SEC filings in the corpus are parsed, chunked, embedded, and stored in Sup
 
 Goal: a user question returns ranked, relevant source passages.
 
-- [x] `retrieval/queries.py` — pgvector semantic search over `document_chunks`
-- [x] `retrieval/queries.py` — Postgres full-text search over `search_vector`
-- [x] `retrieval/fusion.py` — Reciprocal Rank Fusion in Python
-- [x] `retrieval/retriever.py` — query → fused ranked passages + neighbor chunks
-- [x] Unit tests: fusion ranking, query assembly (mock DB)
-- [x] Integration test (optional, `@pytest.mark.integration`): real query against ingested corpus
-- [x] Verify: test queries from [client-brief](client-brief.md) return relevant chunks (manual or scripted)
+- [x] `retrieval/queries.py` — pgvector semantic search over `document_chunks` (cosine, HNSW, top 50, optional ticker / fiscal-year / section filters)
+- [x] `retrieval/queries.py` — Postgres full-text search over `search_vector` (OR query built from the question, filler words dropped, `ts_rank`, top 50)
+- [x] `retrieval/fusion.py` — Reciprocal Rank Fusion in Python (k = 60, rank-based)
+- [x] `retrieval/retriever.py` — query → fused ranked passages + neighbor chunks (`DocumentRetriever.search`)
+- [x] Supporting: async DB engine (`database/engine.py`) and async OpenAI client (`openai_client.py`) wired into the app lifespan
+- [x] Unit tests: fusion ranking, query assembly, retriever flow (fakes, no DB or network) — `tests/retrieval/`
+- [x] Integration test (`@pytest.mark.integration`): real queries against the ingested corpus — `tests/retrieval/test_retrieval_live.py`; run with `uv run pytest -m integration` (skipped by default)
+- [x] Verify: 15 golden questions (10 from [client-brief](client-brief.md), 5 exact-term lookups) scored by `uv run python -m evals.retrieval_eval` — hybrid finds a correct passage in the top 5 for all 15 (keyword-only 87%, vector-only 80%)
 
 ---
 
