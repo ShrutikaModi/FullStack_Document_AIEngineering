@@ -1,0 +1,266 @@
+[
+  {
+    "id": "brief-1-apple-revenue-mix",
+    "kind": "brief",
+    "question": "Across Apple's 2021-2025 10-Ks, how did the revenue mix between iPhone, Services, Mac, iPad, and Wearables change?",
+    "filters": {
+      "tickers": [
+        "AAPL"
+      ]
+    },
+    "expect": {
+      "tickers": [
+        "AAPL"
+      ],
+      "section_prefix": "Item 7",
+      "contains": [
+        "Wearables, Home and Accessories"
+      ]
+    }
+  },
+  {
+    "id": "brief-2-aws-operating-income",
+    "kind": "brief",
+    "question": "For Amazon, compare AWS operating income and margin against North America and International.",
+    "filters": {
+      "tickers": [
+        "AMZN"
+      ]
+    },
+    "expect": {
+      "tickers": [
+        "AMZN"
+      ],
+      "contains": [
+        "Operating income (loss)"
+      ]
+    }
+  },
+  {
+    "id": "brief-3-nvidia-data-center",
+    "kind": "brief",
+    "question": "How did NVIDIA describe demand drivers, customer concentration, and supply constraints for its Data Center business?",
+    "filters": {
+      "tickers": [
+        "NVDA"
+      ]
+    },
+    "expect": {
+      "tickers": [
+        "NVDA"
+      ],
+      "contains": [
+        "supply constraints",
+        "limited number of"
+      ]
+    }
+  },
+  {
+    "id": "brief-4-microsoft-azure-capacity",
+    "kind": "brief",
+    "question": "What changed in the way Microsoft describes Azure, AI infrastructure, and cloud capacity constraints?",
+    "filters": {
+      "tickers": [
+        "MSFT"
+      ]
+    },
+    "expect": {
+      "tickers": [
+        "MSFT"
+      ],
+      "contains": [
+        "datacenter capacity",
+        "AI infrastructure"
+      ]
+    }
+  },
+  {
+    "id": "brief-5-alphabet-revenue-lines",
+    "kind": "brief",
+    "question": "For Alphabet, how did Google Search, YouTube ads, Google Network, subscriptions, platforms, devices, and Google Cloud revenue trends differ?",
+    "filters": {
+      "tickers": [
+        "GOOGL"
+      ]
+    },
+    "expect": {
+      "tickers": [
+        "GOOGL"
+      ],
+      "section_prefix": "Item 7",
+      "contains": [
+        "YouTube ads"
+      ]
+    }
+  },
+  {
+    "id": "brief-6-ai-export-risk-language",
+    "kind": "brief",
+    "question": "Which companies added or materially changed risk-factor language related to AI, export controls, supply chain concentration, or regulation?",
+    "filters": {},
+    "expect": {
+      "section_prefix": "Item 1A",
+      "contains": [
+        "export control"
+      ]
+    }
+  },
+  {
+    "id": "brief-7-supplier-concentration",
+    "kind": "brief",
+    "question": "For Apple and NVIDIA, what do the filings say about supplier concentration or dependence on third-party manufacturing?",
+    "filters": {
+      "tickers": [
+        "AAPL",
+        "NVDA"
+      ]
+    },
+    "expect": {
+      "tickers": [
+        "AAPL",
+        "NVDA"
+      ],
+      "section_prefix": "Item 1A",
+      "contains": [
+        "single or limited",
+        "limited number of",
+        "depend on third",
+        "single source",
+        "sole source"
+      ]
+    }
+  },
+  {
+    "id": "brief-8-capex-purchase-commitments",
+    "kind": "brief",
+    "question": "Compare capital expenditures and purchase commitments for Microsoft, Alphabet, Amazon, and NVIDIA.",
+    "filters": {
+      "tickers": [
+        "MSFT",
+        "GOOGL",
+        "AMZN",
+        "NVDA"
+      ]
+    },
+    "expect": {
+      "tickers": [
+        "MSFT",
+        "GOOGL",
+        "AMZN",
+        "NVDA"
+      ],
+      "contains": [
+        "purchase commitments",
+        "capital expenditures"
+      ]
+    }
+  },
+  {
+    "id": "brief-9-geographic-exposure",
+    "kind": "brief",
+    "question": "Summarize the most important geographic revenue exposures disclosed in the latest 10-K.",
+    "filters": {
+      "fiscal_years": [
+        2025
+      ]
+    },
+    "expect": {
+      "fiscal_years": [
+        2025
+      ],
+      "contains": [
+        "Greater China",
+        "geographic area"
+      ]
+    }
+  },
+  {
+    "id": "brief-10-genai-margins",
+    "kind": "brief",
+    "question": "Do the filings prove that generative AI improved margins for any of these companies?",
+    "filters": {},
+    "expect": {
+      "contains": [
+        "generative AI"
+      ]
+    }
+  },
+  {
+    "id": "exact-1-item-1c",
+    "kind": "exact",
+    "question": "Item 1C Cybersecurity",
+    "filters": {},
+    "expect": {
+      "section_prefix": "Item 1C",
+      "contains": [
+        "cybersecurity"
+      ]
+    }
+  },
+  {
+    "id": "exact-2-apple-net-sales-figure",
+    "kind": "exact",
+    "question": "Apple total net sales $391,035 million in fiscal 2024",
+    "filters": {
+      "tickers": [
+        "AAPL"
+      ]
+    },
+    "expect": {
+      "tickers": [
+        "AAPL"
+      ],
+      "fiscal_years": [
+        2024,
+        2025
+      ],
+      "contains": [
+        "391,035"
+      ]
+    }
+  },
+  {
+    "id": "exact-3-tesla-gigafactory-shanghai",
+    "kind": "exact",
+    "question": "Tesla Gigafactory Shanghai",
+    "filters": {},
+    "expect": {
+      "tickers": [
+        "TSLA"
+      ],
+      "contains": [
+        "Gigafactory Shanghai"
+      ]
+    }
+  },
+  {
+    "id": "exact-4-jpmorgan-cet1",
+    "kind": "exact",
+    "question": "JPMorgan common equity Tier 1 capital ratio",
+    "filters": {},
+    "expect": {
+      "tickers": [
+        "JPM"
+      ],
+      "contains": [
+        "Common equity Tier 1",
+        "CET1",
+        "Tier 1 capital"
+      ]
+    }
+  },
+  {
+    "id": "exact-5-meta-reality-labs",
+    "kind": "exact",
+    "question": "Meta Reality Labs operating loss",
+    "filters": {},
+    "expect": {
+      "tickers": [
+        "META"
+      ],
+      "contains": [
+        "Reality Labs"
+      ]
+    }
+  }
+]

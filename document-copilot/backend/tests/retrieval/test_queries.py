@@ -40,6 +40,21 @@ def test_or_query_strips_characters_that_are_tsquery_operators():
     )
 
 
+def test_filler_words_about_the_document_are_left_out():
+    assert build_or_query(
+        "Summarize the geographic exposures in the latest 10-K filings"
+    ) == ("the | geographic | exposures | in | the")
+
+
+def test_item_10_is_not_mistaken_for_form_10_k():
+    assert build_or_query("Item 10 directors") == "item | 10 | directors"
+
+
+def test_a_question_made_only_of_filler_words_has_no_query():
+    assert build_or_query("Summarize the latest filings") == "the"
+    assert build_or_query("summarize latest 10-K filings") is None
+
+
 @pytest.mark.parametrize("text", ["", "   ", "?!&|()", "—…"])
 def test_or_query_is_none_when_there_are_no_words(text):
     assert build_or_query(text) is None

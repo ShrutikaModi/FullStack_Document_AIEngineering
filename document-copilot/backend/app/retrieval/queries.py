@@ -20,6 +20,46 @@ TS_RANK_FLAG = 1
 WORD = re.compile(r"[a-z0-9]+")
 
 
+# Words that describe the act of asking or the kind of document, not the topic. Every
+# filing says "the Company" and "Form 10-K" many times, so as search words they match
+# almost everything and push real answers down ("ITEM 16. FORM 10-K SUMMARY: None" once
+# outranked the right passages). Postgres already drops ordinary stopwords (the, how, did).
+FILLER_WORDS = frozenset(
+    [
+        "10k",
+        "10ks",
+        "form",
+        "filing",
+        "filings",
+        "report",
+        "latest",
+        "summarize",
+        "summary",
+        "compare",
+        "comparison",
+        "describe",
+        "describes",
+        "described",
+        "disclosed",
+        "discloses",
+        "disclose",
+        "say",
+        "says",
+        "said",
+        "mention",
+        "identify",
+        "explain",
+        "important",
+        "company",
+        "companies",
+        "fiscal",
+        "year",
+        "years",
+    ]
+)
+TEN_K = re.compile(r"\b10-?ks?\b")
+
+
 def build_or_query(question: str) -> str | None:
     """'How did Apple's revenue change?' -> 'how | did | apple | s | revenue | change'.
 
@@ -28,7 +68,11 @@ def build_or_query(question: str) -> str | None:
     Only letters and digits are kept, so no tsquery operator can be injected. Postgres
     (english config) drops stopwords and stems the words when it reads this.
     """
-    words = WORD.findall(question.lower())
+    words = [
+        word
+        for word in WORD.findall(TEN_K.sub(" ", question.lower()))
+        if word not in FILLER_WORDS
+    ]
     return " | ".join(words) if words else None
 
 
