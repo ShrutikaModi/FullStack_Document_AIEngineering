@@ -5,9 +5,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth, chat
+from app.assistant.agent import build_agent
+from app.assistant.model import create_chat_model
 from app.config import settings
 from app.database.engine import create_db_engine
 from app.database.supabase import create_admin_client
+from app.openai_client import create_async_openai_client
+from app.retrieval.retriever import DocumentRetriever, openai_embedder
 
 log = structlog.get_logger()
 
@@ -16,6 +20,11 @@ log = structlog.get_logger()
 async def lifespan(app: FastAPI):
     app.state.supabase_admin = await create_admin_client()
     app.state.db_engine = create_db_engine()
+    # Built once and reused by every question; nothing connects until first use.
+    app.state.retriever = DocumentRetriever(
+        app.state.db_engine, openai_embedder(create_async_openai_client())
+    )
+    app.state.agent = build_agent(create_chat_model())
     yield
     await app.state.db_engine.dispose()
 
