@@ -21,8 +21,29 @@ class GroundedAnswer(BaseModel):
     taken from our own database, never from the model, so it cannot be altered.
     """
 
-    answer: str
-    citations: list[Citation] = []
+    # The Field descriptions below are sent to the model with the answer format, so each one
+    # is an instruction to the model written next to the field it is filling in.
+    answer: str = Field(
+        description=(
+            "The reply to the analyst. Put a marker like [1] right after every factual "
+            "claim. Write [1][2], never [1, 2]. Every marker needs a matching entry in "
+            "`citations`."
+        )
+    )
+    citations: list[Citation] = Field(
+        default_factory=list,
+        description=(
+            "One entry per marker used in `answer`: `label` is the marker number and "
+            "`passage_id` is the id (like P3) of the retrieved passage that supports the "
+            "claim. Leave empty when enough_evidence is false."
+        ),
+    )
     # False when the passages don't answer the question. The answer then explains what is
     # missing, and must not contain citations.
-    enough_evidence: bool
+    enough_evidence: bool = Field(
+        description=(
+            "True if the retrieved passages support an answer, even a partial one (then "
+            "say what is missing). False only when they do not answer the question at "
+            "all; then cite nothing and explain what was searched and what is missing."
+        )
+    )
