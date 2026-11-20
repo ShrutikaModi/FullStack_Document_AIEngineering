@@ -78,9 +78,9 @@ class DocumentRetriever:
             )
             for chunk_id, score in best
         ]
-        return await self._attach_neighbors(passages, neighbors)
+        return await self.attach_neighbors(passages, neighbors)
 
-    async def _attach_neighbors(
+    async def attach_neighbors(
         self, passages: list[Passage], window: int
     ) -> list[Passage]:
         """Add the chunks just before and after each result (same filing, reading order)."""
