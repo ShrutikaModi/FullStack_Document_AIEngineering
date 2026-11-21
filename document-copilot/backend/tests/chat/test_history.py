@@ -119,3 +119,21 @@ async def test_recent_messages_returns_the_newest_ones_oldest_first():
 
     rows = await recent_messages(admin, thread, 3)
     assert [r["content"] for r in rows] == ["m2", "m3", "m4"]
+
+
+def test_stored_source_cards_are_not_part_of_the_memory():
+    rows = [
+        {"role": "user", "parts": [{"type": "text", "text": "Q"}]},
+        {
+            "role": "assistant",
+            "parts": [
+                {"type": "text", "text": "Answer [1]."},
+                {
+                    "type": "data-citations",
+                    "data": {"sources": [{"excerpt": "SECRET"}]},
+                },
+            ],
+        },
+    ]
+    shown = " ".join(str(p.content) for m in history_for_agent(rows) for p in m.parts)
+    assert "SECRET" not in shown and "[1]" not in shown

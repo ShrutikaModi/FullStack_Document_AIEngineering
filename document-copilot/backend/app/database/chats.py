@@ -83,15 +83,30 @@ async def save_turn(
     user_message: Row,
     assistant_message: Row,
     title: str,
+    citations: list[Row] | None = None,
 ) -> None:
-    """Store both messages of a finished turn in one insert, then touch the thread.
+    """Store a finished turn: both messages, the answer's citations, then touch the thread.
 
     The caller sets `created_at` on each message so their order is unambiguous.
-    `title` is applied only if the thread has none yet, so it never changes later.
+    `citations` are `message_citations` rows (message_id, chunk_id, label), one per source
+    the answer cites. `title` is applied only if the thread has none yet.
     """
     await (
         admin.table("chat_messages").insert([user_message, assistant_message]).execute()
     )
+    if citations:
+        try:
+            await admin.table("message_citations").insert(citations).execute()
+        except Exception:
+            # The calls are separate requests, not one transaction. Remove the messages so
+            # a failed turn leaves nothing behind and a retry cannot create duplicates.
+            await (
+                admin.table("chat_messages")
+                .delete()
+                .in_("id", [user_message["id"], assistant_message["id"]])
+                .execute()
+            )
+            raise
     changes: Row = {"updated_at": datetime.now(UTC).isoformat()}
     if not thread["title"]:
         changes["title"] = title

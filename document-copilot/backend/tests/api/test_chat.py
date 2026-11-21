@@ -1,5 +1,5 @@
 import json
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -167,6 +167,33 @@ def test_finished_turn_is_saved_in_order_and_reloads(client, admin):
     assert history[1]["parts"][0]["text"] == ANSWER
 
 
+def test_citations_are_saved_with_the_answer_and_come_back_on_reload(client, admin):
+    thread = new_thread(client)
+    parsed = events(ask(client, thread))
+    answer_id = parsed[0]["messageId"]
+
+    (row,) = admin.tables["message_citations"]
+    assert row["message_id"] == answer_id
+    assert (row["chunk_id"], row["label"]) == (str(UUID(int=1)), 1)
+
+    history = client.get(f"/threads/{thread}/messages", headers=AUTH_ALICE).json()
+    kinds = [part["type"] for part in history[1]["parts"]]
+    assert kinds == ["text", "data-citations"]
+    (source,) = history[1]["parts"][1]["data"]["sources"]
+    assert source["page"] == 23 and source["company"] == "Apple Inc."
+
+
+def test_a_failed_citation_save_removes_the_turn_and_reports_an_error(client, admin):
+    thread = new_thread(client)
+    admin.fail_inserts_into = {"message_citations"}
+    types = [
+        e if isinstance(e, str) else e["type"] for e in events(ask(client, thread))
+    ]
+    assert "error" in types and "finish" not in types
+    admin.fail_inserts_into = set()
+    assert client.get(f"/threads/{thread}/messages", headers=AUTH_ALICE).json() == []
+
+
 def test_title_comes_from_first_question_only(client):
     thread = new_thread(client)
     ask(client, thread, "First   question\nabout Apple")
@@ -177,12 +204,12 @@ def test_title_comes_from_first_question_only(client):
 
 def test_save_failure_sends_error_not_finish(client, admin):
     thread = new_thread(client)
-    admin.fail_inserts_into = "chat_messages"
+    admin.fail_inserts_into = {"chat_messages"}
     types = [
         e if isinstance(e, str) else e["type"] for e in events(ask(client, thread))
     ]
     assert "error" in types and "finish" not in types
-    admin.fail_inserts_into = None
+    admin.fail_inserts_into = set()
     assert client.get(f"/threads/{thread}/messages", headers=AUTH_ALICE).json() == []
 
 

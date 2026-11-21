@@ -134,6 +134,9 @@ async def run_turn(
     if sources:
         yield citations_event(sources)
 
+    source_parts = (
+        [{"type": "data-citations", "data": {"sources": sources}}] if sources else []
+    )
     user_message = {
         "id": str(uuid4()),
         "thread_id": thread["id"],
@@ -147,12 +150,22 @@ async def run_turn(
         "thread_id": thread["id"],
         "role": "assistant",
         "content": text,
-        "parts": [{"type": "text", "text": text}],
+        # The sources are stored with the message, so a reloaded thread shows them again.
+        "parts": [{"type": "text", "text": text}, *source_parts],
         "created_at": datetime.now(UTC).isoformat(),
     }
+    citation_rows = [
+        {"message_id": message_id, "chunk_id": s["chunkId"], "label": s["label"]}
+        for s in sources
+    ]
     try:
         await save_turn(
-            admin, thread, user_message, assistant_message, thread_title(user_text)
+            admin,
+            thread,
+            user_message,
+            assistant_message,
+            thread_title(user_text),
+            citation_rows,
         )
     except Exception:
         log.exception("could not save chat turn", thread_id=thread["id"])

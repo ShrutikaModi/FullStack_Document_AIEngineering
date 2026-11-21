@@ -21,6 +21,14 @@ class FakeQuery:
         self.filters.append((column, value))
         return self
 
+    def in_(self, column, values):
+        self.filters.append((column, set(values)))
+        return self
+
+    def delete(self):
+        self.action = "delete"
+        return self
+
     def order(self, column, desc=False):
         self.sort = (column, desc)
         return self
@@ -42,10 +50,17 @@ class FakeQuery:
         return self
 
     def _matching(self):
-        return [r for r in self.rows if all(r.get(c) == v for c, v in self.filters)]
+        return [
+            r
+            for r in self.rows
+            if all(
+                r.get(c) in v if isinstance(v, set) else r.get(c) == v
+                for c, v in self.filters
+            )
+        ]
 
     async def execute(self):
-        if self.db.fail_inserts_into == self.table and self.action == "insert":
+        if self.table in self.db.fail_inserts_into and self.action == "insert":
             raise RuntimeError("database is down")
         if self.action == "insert":
             items = self.payload if isinstance(self.payload, list) else [self.payload]
@@ -61,6 +76,10 @@ class FakeQuery:
                 self.rows.append(row)
                 stamped.append(row)
             return SimpleNamespace(data=stamped)
+        if self.action == "delete":
+            gone = self._matching()
+            self.rows[:] = [r for r in self.rows if r not in gone]
+            return SimpleNamespace(data=gone)
         if self.action == "update":
             for row in self._matching():
                 row.update(self.payload)
@@ -84,7 +103,7 @@ class FakeQuery:
 class FakeAdmin:
     def __init__(self):
         self.tables: dict[str, list[dict]] = {}
-        self.fail_inserts_into: str | None = None
+        self.fail_inserts_into: set[str] = set()
         self.auth = SimpleNamespace(get_user=self._get_user)
         self.tokens: dict[str, SimpleNamespace] = {}
 
