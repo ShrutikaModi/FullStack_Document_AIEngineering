@@ -31,6 +31,7 @@ from app.assistant.agent import build_agent
 from app.assistant.deps import DocumentAgentDeps
 from app.assistant.model import create_chat_model
 from app.chat.messages import history_for_agent
+from app.chat.orchestrator import blocked_categories
 from app.database.engine import create_db_engine
 from app.openai_client import create_async_openai_client
 from app.retrieval.retriever import DocumentRetriever, openai_embedder
@@ -117,7 +118,11 @@ async def run_once(agent, retriever, case: dict) -> tuple[RunRecord, DocumentAge
             "grounding_failed: the citation rules were still broken after retries"
         )
     except ModelAPIError as error:
-        record.error = f"model error: {error}"
+        blocked = blocked_categories(error)
+        if blocked is None:
+            record.error = f"model error: {error}"
+        else:
+            record.error = f"blocked: content filter ({', '.join(blocked)})"
     else:
         record.answer = result.output
         record.cited = [

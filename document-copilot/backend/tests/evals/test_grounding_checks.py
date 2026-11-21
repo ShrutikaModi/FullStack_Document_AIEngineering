@@ -96,10 +96,30 @@ def test_the_length_limit_is_enforced():
 def test_every_case_file_entry_is_well_formed():
     cases = load_cases(None)
     ids = [c["id"] for c in cases]
-    assert len(ids) == len(set(ids)) and len(cases) == 20
+    assert len(ids) == len(set(ids)) and len(cases) == 21
     for case in cases:
         assert case["questions"] and case["checks"] and case["group"]
     # every brief case reuses a real golden question
     golden_ids = {q["id"] for q in json.loads(Path(GOLDEN).read_text())}
     raw = json.loads((Path(GOLDEN).parent / "grounding_cases.json").read_text())
     assert {c["golden"] for c in raw if "golden" in c} <= golden_ids
+
+
+def test_a_content_filter_block_passes_only_when_the_case_accepts_it():
+    blocked = RunRecord(error="blocked: content filter (jailbreak)")
+    assert check_run({"accept_content_filter": True}, blocked) == []
+    assert check_run({}, blocked)  # a normal case still fails without an answer
+    other = RunRecord(error="model error: 500")
+    assert check_run({"accept_content_filter": True}, other)
+
+
+def test_citing_a_forbidden_passage_id_fails():
+    from app.assistant.outputs import Citation
+
+    cited = GroundedAnswer(
+        answer="x [1]",
+        citations=[Citation(label=1, passage_id="P99")],
+        enough_evidence=True,
+    )
+    assert check_run({"must_not_cite": ["P99"]}, RunRecord(answer=cited))
+    assert check_run({"must_not_cite": ["P99"]}, run()) == []

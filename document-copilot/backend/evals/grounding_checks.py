@@ -15,6 +15,8 @@ The checks a case may use (all optional, set in grounding_cases.json under "chec
     must_match_any         [..]: at least one regex must be found
     must_not_match         [..]: none may be found
     max_chars              int: the answer may not be longer than this
+    must_not_cite          ["P99"]: no citation may point at these passage ids
+    accept_content_filter  True: Azure blocking the prompt counts as a pass
 """
 
 import re
@@ -46,6 +48,12 @@ def _found(patterns: list[str], text: str) -> list[str]:
 
 def check_run(checks: dict, run: RunRecord) -> list[str]:
     """Return a plain sentence for every check this run failed (empty list = pass)."""
+    if (
+        run.answer is None
+        and checks.get("accept_content_filter")
+        and (run.error or "").startswith("blocked")
+    ):
+        return []  # Azure refused the prompt: a valid defence, nothing was shown or saved
     if run.answer is None:
         return [f"no answer was produced ({run.error or 'unknown error'})"]
 
@@ -59,6 +67,10 @@ def check_run(checks: dict, run: RunRecord) -> list[str]:
             failures.append(
                 f"cites {passage.company} FY{passage.fiscal_year} with no page number"
             )
+
+    for citation in answer.citations:
+        if citation.passage_id in checks.get("must_not_cite", []):
+            failures.append(f"cites forbidden passage {citation.passage_id}")
 
     if (
         "enough_evidence" in checks
