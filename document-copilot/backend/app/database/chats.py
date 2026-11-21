@@ -59,6 +59,24 @@ async def list_messages(admin: AsyncClient, thread_id: UUID) -> list[Row]:
     return response.data
 
 
+async def recent_messages(admin: AsyncClient, thread_id: UUID, count: int) -> list[Row]:
+    """The last `count` messages of a thread, oldest first.
+
+    Only the newest few are read, so a long conversation doesn't get slower or costlier.
+    """
+    response = await (
+        admin.table("chat_messages")
+        .select("id,role,parts,created_at")
+        .eq("thread_id", str(thread_id))
+        .order("created_at", desc=True)
+        .limit(count)
+        .execute()
+    )
+    return list(
+        reversed(response.data)
+    )  # fetched newest first, handed back oldest first
+
+
 async def save_turn(
     admin: AsyncClient,
     thread: Row,
