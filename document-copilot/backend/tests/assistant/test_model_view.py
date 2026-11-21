@@ -41,7 +41,10 @@ async def test_each_tool_is_described_to_the_model_with_every_parameter():
     search = tools["search_filings"]
     assert "Use this before answering" in search.description
     parameters = search.parameters_json_schema["properties"]
-    assert set(parameters) == {"query", "tickers", "fiscal_years", "section"}
+    assert set(parameters) == {"reason", "query", "tickers", "fiscal_years", "section"}
+    assert (
+        "reason" in search.parameters_json_schema["required"]
+    )  # the model must always give one
     assert all(spec.get("description") for spec in parameters.values())
 
     around = tools["read_surrounding_chunks"].parameters_json_schema["properties"]

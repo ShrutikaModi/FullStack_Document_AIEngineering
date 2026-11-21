@@ -7,6 +7,9 @@ from app.retrieval.types import Passage
 # Each search returns about 8 passages (roughly 4,000 tokens). Capping the searches per
 # question keeps cost and waiting time bounded, even if the model keeps wanting "one more".
 MAX_SEARCHES = 6
+# "Show me the text around this passage" calls are limited too. Without a cap, a vague
+# question made the model re-read the same passages again and again (10 tool calls).
+MAX_CONTEXT_READS = 4
 
 
 class EvidenceLog:
@@ -50,3 +53,6 @@ class DocumentAgentDeps:
     retriever: DocumentRetriever
     evidence: EvidenceLog = field(default_factory=EvidenceLog)
     searches_left: int = MAX_SEARCHES
+    reads_left: int = MAX_CONTEXT_READS
+    # passage id -> widest context already read, so the same read is never repeated.
+    read_windows: dict[str, int] = field(default_factory=dict)

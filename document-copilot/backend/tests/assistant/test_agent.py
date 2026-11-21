@@ -43,7 +43,12 @@ def deps() -> DocumentAgentDeps:
 
 def search_call() -> ModelResponse:
     return ModelResponse(
-        parts=[ToolCallPart("search_filings", {"query": "iPhone sales"})]
+        parts=[
+            ToolCallPart(
+                "search_filings",
+                {"reason": "find iPhone sales", "query": "iPhone sales"},
+            )
+        ]
     )
 
 
