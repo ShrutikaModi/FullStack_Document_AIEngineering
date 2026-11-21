@@ -172,7 +172,9 @@ Goal: 5 senior analysts can use it for a week and report ≥3 hours saved per an
 - [ ] Smoke-test all 10 example questions from the client brief
 - [ ] Confirm chat history persists across sessions
 - [ ] Confirm ~40-user scale assumptions (no hardcoded single-user shortcuts)
-- [ ] Basic structured logging on backend (`structlog`) for debugging failed turns
+- [x] Basic structured logging on backend (`structlog`) for debugging failed turns
+  - Every line of a question carries `request_id`, `thread_id`, `user_id`. Lines: `turn_started`, `model_response`, `tool_call`, `citation_retry`, `turn_finished` (with `outcome` and total `ms`). `LOG_FORMAT=console|json`. The question text is never logged.
+  - Full explanation, a real example turn and how to trace a failed turn: [docs/logging.md](docs/logging.md)
 - [ ] Review latency: streaming starts within a few seconds for typical queries
 
 ---

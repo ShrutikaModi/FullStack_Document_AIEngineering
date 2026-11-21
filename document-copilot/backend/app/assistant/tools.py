@@ -1,3 +1,5 @@
+from time import perf_counter
+
 import structlog
 from pydantic_ai import ModelRetry, RunContext
 
@@ -43,16 +45,17 @@ async def search_filings(
             or "Item 7" for management's discussion.
     """
     deps = ctx.deps
-    log.info(
-        "tool_call",
-        tool="search_filings",
-        reason=reason,
-        query=query,
-        tickers=tickers,
-        fiscal_years=fiscal_years,
-        section=section,
-    )
+    # Everything we log about the search; `results` and `ms` are added once it has run.
+    details = {
+        "tool": "search_filings",
+        "reason": reason,
+        "query": query,
+        "tickers": tickers,
+        "fiscal_years": fiscal_years,
+        "section": section,
+    }
     if deps.searches_left <= 0:
+        log.info("tool_call", **details, refused="search limit reached")
         return "Search limit reached. Answer using only the passages you already have."
     deps.searches_left -= 1
 
@@ -61,7 +64,14 @@ async def search_filings(
         fiscal_years=list(fiscal_years or []),
         section_prefix=section,
     )
+    started = perf_counter()
     passages = await deps.retriever.search(query, filters, top_k=TOP_K, neighbors=0)
+    log.info(
+        "tool_call",
+        **details,
+        results=len(passages),
+        ms=round((perf_counter() - started) * 1000),
+    )
     if not passages:
         return "No passages found. Try different words or fewer filters."
     return "\n\n".join(format_passage(deps.evidence.add(p), p) for p in passages)

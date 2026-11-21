@@ -7,7 +7,9 @@ nothing is saved.
 """
 
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
@@ -21,7 +23,7 @@ from pydantic_ai.exceptions import (
 from pydantic_ai.messages import ModelMessage, ToolCallPart
 from supabase import AsyncClient
 
-from app.assistant.deps import DocumentAgentDeps
+from app.assistant.deps import MAX_SEARCHES, DocumentAgentDeps
 from app.assistant.outputs import GroundedAnswer
 from app.chat.messages import thread_title
 from app.chat.sources import build_sources
@@ -85,15 +87,38 @@ async def run_agent(
     `agent.iter` hands us each step as it happens, which is how we can show progress
     without the tools knowing anything about the browser.
     """
+    mark = perf_counter()
     async with agent.iter(user_text, deps=deps, message_history=history) as run:
         async for node in run:
+            took, mark = perf_counter() - mark, perf_counter()
             if Agent.is_call_tools_node(node):
+                # The model call finished just before this node arrived, so `took` is
+                # how long the model needed for this step.
+                usage = node.model_response.usage
+                log.info(
+                    "model_response",
+                    ms=round(took * 1000),
+                    input_tokens=usage.input_tokens,
+                    output_tokens=usage.output_tokens,
+                )
                 for part in node.model_response.parts:
                     if isinstance(part, ToolCallPart):
                         line = describe_tool_call(part.tool_name, part.args_as_dict())
                         if line:
                             yield status_event(line)
     yield run.result.output
+
+
+@dataclass
+class TurnOutcome:
+    """How the turn ended, for the `turn_finished` log line.
+
+    Stays "client_disconnected" unless the turn sets something else: if the browser goes
+    away mid-stream the generator is closed before it reaches any of the assignments.
+    """
+
+    name: str = "client_disconnected"
+    sources: int = 0
 
 
 async def run_turn(
@@ -108,13 +133,50 @@ async def run_turn(
 ) -> AsyncIterator[str]:
     """One chat turn: agent -> verified answer -> stream -> save both messages.
 
-    Nothing is saved if the turn fails or the client disconnects mid-stream.
+    Nothing is saved if the turn fails or the client disconnects mid-stream. Every log line
+    written during the turn carries its ids; a `turn_finished` line says how it ended.
     """
-    asked_at = datetime.now(UTC)
-    message_id, text_id = str(uuid4()), str(uuid4())
+    started = perf_counter()
+    # The assistant message id doubles as the request id, so a log line can be matched to
+    # the saved message (and to the `messageId` the browser received).
+    message_id = str(uuid4())
+    structlog.contextvars.bind_contextvars(
+        request_id=message_id, thread_id=str(thread["id"]), user_id=user_id
+    )
     deps = DocumentAgentDeps(
         user_id=user_id, thread_id=str(thread["id"]), retriever=retriever
     )
+    outcome = TurnOutcome()
+    # Lengths only: the question is the analyst's own words and stays out of the logs.
+    log.info("turn_started", question_chars=len(user_text), history=len(history))
+    try:
+        async for chunk in stream_turn(
+            admin, thread, user_text, message_id, agent, deps, history, outcome
+        ):
+            yield chunk
+    finally:
+        log.info(
+            "turn_finished",
+            outcome=outcome.name,
+            ms=round((perf_counter() - started) * 1000),
+            searches=MAX_SEARCHES - deps.searches_left,
+            sources=outcome.sources,
+        )
+        structlog.contextvars.clear_contextvars()
+
+
+async def stream_turn(
+    admin: AsyncClient,
+    thread: Row,
+    user_text: str,
+    message_id: str,
+    agent: Agent[DocumentAgentDeps, GroundedAnswer],
+    deps: DocumentAgentDeps,
+    history: list[ModelMessage],
+    outcome: TurnOutcome,
+) -> AsyncIterator[str]:
+    asked_at = datetime.now(UTC)
+    text_id = str(uuid4())
 
     yield event({"type": "start", "messageId": message_id})
 
@@ -127,31 +189,34 @@ async def run_turn(
                 yield item
     except UnexpectedModelBehavior:
         # The model kept breaking the citation rules (or sent unusable output).
-        log.warning("grounding failed", thread_id=thread["id"], exc_info=True)
+        outcome.name = "grounding_failed"
+        log.warning("grounding failed", exc_info=True)
         yield event({"type": "error", "errorText": GROUNDING_FAILED})
         yield DONE
         return
     except ModelAPIError as error:
         blocked = blocked_categories(error)
         if blocked is not None:
-            log.warning(
-                "blocked by content filter", thread_id=thread["id"], filters=blocked
-            )
+            outcome.name = "content_blocked"
+            log.warning("blocked by content filter", filters=blocked)
             yield event({"type": "error", "errorText": CONTENT_BLOCKED})
             yield DONE
             return
-        log.exception("model call failed", thread_id=thread["id"])
+        outcome.name = "model_unavailable"
+        log.exception("model call failed")
         yield event({"type": "error", "errorText": MODEL_UNAVAILABLE})
         yield DONE
         return
     except Exception:
         # Tools run inside the agent, so a database or embedding failure lands here.
-        log.exception("agent run failed", thread_id=thread["id"])
+        outcome.name = "search_failed"
+        log.exception("agent run failed")
         yield event({"type": "error", "errorText": SEARCH_FAILED})
         yield DONE
         return
 
     if answer is None:  # cannot happen; fail closed rather than stream nothing
+        outcome.name = "grounding_failed"
         yield event({"type": "error", "errorText": GROUNDING_FAILED})
         yield DONE
         return
@@ -201,8 +266,11 @@ async def run_turn(
             citation_rows,
         )
     except Exception:
-        log.exception("could not save chat turn", thread_id=thread["id"])
+        outcome.name = "save_failed"
+        log.exception("could not save chat turn")
         yield event({"type": "error", "errorText": SAVE_FAILED})
     else:
+        outcome.name = "answered"
+        outcome.sources = len(sources)
         yield event({"type": "finish"})
     yield DONE

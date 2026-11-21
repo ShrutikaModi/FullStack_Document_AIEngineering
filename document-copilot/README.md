@@ -77,6 +77,12 @@ pnpm dev
 Open http://localhost:5173, sign up with an email, and ask a question about the filings. The
 corpus must be loaded first (next section) or every answer will say there is not enough evidence.
 
+**Logs:** each question writes a few log lines (`turn_started`, `tool_call`, `model_response`,
+`turn_finished`) that share a `request_id`, `thread_id` and `user_id`. Locally they are coloured
+and readable; on Railway set `LOG_FORMAT=json` for one JSON object per line. The question text is
+never logged, only its length. What each line means and how to trace a failed turn:
+[docs/logging.md](docs/logging.md).
+
 **macOS note:** if `from app...` fails with `No module named 'app'` outside `backend/`
 (for example in an editor's Interactive window), macOS has flagged the editable-install file
 as hidden. Run `chflags -R nohidden backend/.venv` once.

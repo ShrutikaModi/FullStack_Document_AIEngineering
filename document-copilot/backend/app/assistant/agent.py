@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import structlog
 from pydantic_ai import Agent, AgentRetries, ModelRetry, RunContext
 from pydantic_ai.models import Model
 
@@ -7,6 +8,8 @@ from app.assistant.deps import DocumentAgentDeps
 from app.assistant.outputs import GroundedAnswer
 from app.assistant.tools import read_surrounding_chunks, search_filings
 from app.grounding.validator import GroundingError, check_grounding
+
+log = structlog.get_logger()
 
 INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text()
 # How many times the model may fix a citation mistake before we give up.
@@ -34,6 +37,9 @@ def build_agent(model: Model) -> Agent[DocumentAgentDeps, GroundedAnswer]:
         try:
             return check_grounding(answer, ctx.deps.evidence.ids())
         except GroundingError as error:
+            # Which rule the model breaks, and how often, is what tells us how to fix the
+            # instructions (each retry is a whole extra model call).
+            log.info("citation_retry", problems=error.problems)
             raise ModelRetry(
                 "Your answer broke the citation rules: " + " ".join(error.problems)
             ) from error

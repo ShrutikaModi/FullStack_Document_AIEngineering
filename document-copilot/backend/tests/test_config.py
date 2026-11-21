@@ -44,3 +44,14 @@ def test_rejects_pooler_url(settings_cls, monkeypatch):
     )
     with pytest.raises(ValidationError):
         settings_cls(_env_file=None)
+
+
+def test_log_format_defaults_to_console_and_rejects_unknown_values(
+    settings_cls, monkeypatch
+):
+    assert settings_cls(_env_file=None).log_format == "console"
+    monkeypatch.setenv("LOG_FORMAT", "json")
+    assert settings_cls(_env_file=None).log_format == "json"
+    monkeypatch.setenv("LOG_FORMAT", "xml")
+    with pytest.raises(ValidationError):
+        settings_cls(_env_file=None)

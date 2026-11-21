@@ -10,9 +10,11 @@ from app.assistant.model import create_chat_model
 from app.config import settings
 from app.database.engine import create_db_engine
 from app.database.supabase import create_admin_client
+from app.log_setup import configure_logging
 from app.openai_client import create_async_openai_client
 from app.retrieval.retriever import DocumentRetriever, openai_embedder
 
+configure_logging(settings.log_format)
 log = structlog.get_logger()
 
 

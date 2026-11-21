@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import AnyHttpUrl, Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -32,6 +32,10 @@ class Settings(BaseSettings):
 
     # NoDecode: parse the comma-separated env value ourselves instead of as JSON.
     allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
+
+    # "console": coloured, readable lines for local work. "json": one JSON object per line,
+    # which is what a log search tool (and Railway's log view) can filter by field.
+    log_format: Literal["console", "json"] = "console"
 
     @field_validator("*", mode="before")
     @classmethod

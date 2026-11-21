@@ -4,6 +4,7 @@ import json
 from uuid import uuid4
 
 import pytest
+import structlog
 from pydantic_ai.exceptions import ModelHTTPError
 from pydantic_ai.messages import (
     ModelRequest,
@@ -12,7 +13,8 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
-from structlog.testing import capture_logs
+from structlog.contextvars import merge_contextvars
+from structlog.testing import LogCapture
 
 from app.assistant.agent import build_agent
 from app.chat import orchestrator
@@ -24,11 +26,17 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture(autouse=True)
-def quiet_logs():
-    """Failure paths log tracebacks; the default console renderer prints each one with
-    every local variable, which takes many seconds. Capturing the logs avoids that."""
-    with capture_logs():
-        yield
+def logs():
+    """Captures the log lines (with the turn's ids merged in, as in production).
+
+    Failure paths log tracebacks; the default console renderer prints each one with every
+    local variable, which takes many seconds. Capturing avoids that.
+    """
+    capture = LogCapture()
+    previous = structlog.get_config()
+    structlog.configure(processors=[merge_contextvars, capture])
+    yield capture.entries
+    structlog.configure(**previous)
 
 
 THREAD = {"id": str(uuid4()), "title": None}
@@ -101,7 +109,7 @@ async def test_a_model_outage_gives_a_clear_error_and_saves_nothing():
     assert admin.tables.get("chat_messages", []) == []
 
 
-async def test_a_content_filter_block_says_so_and_does_not_name_the_filter():
+async def test_a_content_filter_block_says_so_and_does_not_name_the_filter(logs):
     body = {
         "code": "content_filter",
         "innererror": {
@@ -115,8 +123,7 @@ async def test_a_content_filter_block_says_so_and_does_not_name_the_filter():
     def blocked(messages, info):
         raise ModelHTTPError(400, "test-model", body)
 
-    with capture_logs() as logs:
-        parsed, admin = await turn(blocked)
+    parsed, admin = await turn(blocked)
     assert parsed[-2]["errorText"] == orchestrator.CONTENT_BLOCKED
     assert "jailbreak" not in parsed[-2]["errorText"].lower()
     assert [
@@ -159,6 +166,137 @@ async def test_the_previous_messages_reach_the_model():
     await turn(fn, history=history)
     first_call = " ".join(str(p.content) for m in seen[0] for p in m.parts)
     assert "Earlier question about Apple" in first_call
+
+
+def finished(logs):
+    return [e for e in logs if e["event"] == "turn_finished"]
+
+
+async def test_every_line_of_a_turn_carries_the_same_ids(logs):
+    calls = iter([SEARCH])
+    fn = lambda m, info: (
+        next(calls, None) or answer(info, [{"label": 1, "passage_id": "P1"}])
+    )
+    await turn(fn)
+    assert [
+        e["event"] for e in logs if e["event"] in ("turn_started", "turn_finished")
+    ] == [
+        "turn_started",
+        "turn_finished",
+    ]
+    ids = {(e["request_id"], e["thread_id"], e["user_id"]) for e in logs}
+    assert len(ids) == 1
+    _, thread_id, user_id = ids.pop()
+    assert (thread_id, user_id) == (THREAD["id"], "u")
+
+
+async def test_a_good_turn_logs_how_it_went(logs):
+    calls = iter([SEARCH])
+    fn = lambda m, info: (
+        next(calls, None) or answer(info, [{"label": 1, "passage_id": "P1"}])
+    )
+    await turn(fn)
+    (done,) = finished(logs)
+    assert (done["outcome"], done["searches"], done["sources"]) == ("answered", 1, 1)
+    assert done["ms"] >= 0
+    started = next(e for e in logs if e["event"] == "turn_started")
+    assert started["question_chars"] == len("How were iPhone sales?")
+    # one model call per step: the search, then the answer
+    calls_logged = [e for e in logs if e["event"] == "model_response"]
+    assert len(calls_logged) == 2
+    assert all("input_tokens" in e and e["ms"] >= 0 for e in calls_logged)
+    search = next(e for e in logs if e["event"] == "tool_call")
+    assert search["results"] > 0 and search["ms"] >= 0
+
+
+async def test_the_question_text_never_reaches_the_logs(logs):
+    calls = iter([SEARCH])
+    fn = lambda m, info: (
+        next(calls, None) or answer(info, [{"label": 1, "passage_id": "P1"}])
+    )
+    await turn(fn)
+    assert "How were iPhone sales?" not in str(logs)
+
+
+async def test_a_citation_mistake_is_logged_with_the_broken_rule(logs):
+    calls = iter([SEARCH, None])
+    fn = lambda m, info: (
+        next(calls, None) or answer(info, [{"label": 1, "passage_id": "P99"}])
+    )
+    await turn(fn)
+    retries = [e for e in logs if e["event"] == "citation_retry"]
+    assert retries and "P99" in " ".join(retries[0]["problems"])
+    assert finished(logs)[0]["outcome"] == "grounding_failed"
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected"),
+    [
+        (ModelHTTPError(503, "test-model", "unavailable"), "model_unavailable"),
+        (
+            ModelHTTPError(
+                400,
+                "test-model",
+                {
+                    "code": "content_filter",
+                    "innererror": {
+                        "content_filter_result": {"jailbreak": {"filtered": True}}
+                    },
+                },
+            ),
+            "content_blocked",
+        ),
+    ],
+)
+async def test_each_failure_is_logged_with_its_outcome(logs, failure, expected):
+    def fn(messages, info):
+        raise failure
+
+    await turn(fn)
+    assert finished(logs)[0]["outcome"] == expected
+
+
+async def test_a_failing_search_is_logged_as_search_failed(logs):
+    class BrokenRetriever:
+        async def search(self, *args, **kwargs):
+            raise RuntimeError("database down")
+
+    calls = iter([SEARCH])
+    fn = lambda m, info: next(calls, None) or answer(info, [])
+    await turn(fn, retriever=BrokenRetriever())
+    assert finished(logs)[0]["outcome"] == "search_failed"
+
+
+async def test_a_turn_leaves_no_ids_behind_for_the_next_one(logs):
+    calls = iter([SEARCH])
+    fn = lambda m, info: (
+        next(calls, None) or answer(info, [{"label": 1, "passage_id": "P1"}])
+    )
+    await turn(fn)
+    assert structlog.contextvars.get_contextvars() == {}
+
+
+async def test_a_browser_that_goes_away_is_logged_and_cleaned_up(logs):
+    agent = build_agent(
+        FunctionModel(
+            lambda m, info: answer(
+                info, []
+            )  # never reached: we stop right after "start"
+        )
+    )
+    stream = run_turn(
+        FakeAdmin(),
+        THREAD,
+        "How were iPhone sales?",
+        agent=agent,
+        retriever=FakeRetriever(),
+        user_id="u",
+        history=[],
+    )
+    await anext(stream)  # the "start" event
+    await stream.aclose()  # the browser went away
+    assert finished(logs)[0]["outcome"] == "client_disconnected"
+    assert structlog.contextvars.get_contextvars() == {}
 
 
 def test_progress_lines():
