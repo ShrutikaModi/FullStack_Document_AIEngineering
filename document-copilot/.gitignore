@@ -39,3 +39,4 @@ Thumbs.db
 # Logs
 *.log
 logs/
+backend/evals/last_grounding_run.md

@@ -137,16 +137,16 @@ Goal: grounded answers with enforced citations — the core product contract.
 
 - [x] `assistant/instructions.md` — product contract (cite everything, refuse to invent, no stock picks)
 - [x] PydanticAI agent with typed deps (`DocumentAgentDeps`) and output (`GroundedAnswer`)
-- [x] Agent tools: `search_filings`, `read_chunk`, `read_surrounding_chunks`
+- [x] Agent tools: `search_filings`, `read_surrounding_chunks` (`read_chunk` dropped: search results already carry the full chunk text)
 - [x] `chat/orchestrator.py` — one turn: retrieve → agent → validate → stream → persist
 - [x] `grounding/validator.py` — every citation maps to a retrieved passage; fail closed on violation
 - [x] `chat/streaming.py` — AI SDK-compatible stream (text deltas + citation metadata parts)
 - [x] Persist `message_citations` linked to assistant messages
 - [x] Unit tests: citation validation, grounding enforcement, message conversion
-- [x] Verify against [client-brief example questions](client-brief.md#example-analyst-questions):
-  - [x] Answers cite specific filings and pages
-  - [x] Under-specified questions get "not enough evidence" responses
-  - [x] Question 10 (generative AI margins) refuses to infer beyond filings
+- [ ] Verify against [client-brief example questions](client-brief.md#example-analyst-questions):
+  - [ ] Answers cite specific filings and pages
+  - [ ] Under-specified questions get "not enough evidence" responses
+  - [ ] Question 10 (generative AI margins) refuses to infer beyond filings
 
 ---
 
@@ -154,12 +154,12 @@ Goal: grounded answers with enforced citations — the core product contract.
 
 Goal: analysts can verify every claim in one click — this is what makes the product usable.
 
-- [x] Citation chips/links on assistant messages (company, filing type, date, page/section)
-- [x] Source passage panel — show underlying excerpt for selected citation
-- [x] Empty states (no threads, no corpus match)
-- [x] Error states (auth expired, retrieval failure, grounding failure, network/CORS)
-- [x] Loading/streaming status during assistant run
-- [x] Verify: click a citation → see the exact passage from the filing
+- [ ] Citation chips/links on assistant messages (company, filing type, date, page/section)
+- [ ] Source passage panel — show underlying excerpt for selected citation
+- [ ] Empty states (no threads, no corpus match)
+- [ ] Error states (auth expired, retrieval failure, grounding failure, network/CORS)
+- [ ] Loading/streaming status during assistant run
+- [ ] Verify: click a citation → see the exact passage from the filing
 
 ---
 
