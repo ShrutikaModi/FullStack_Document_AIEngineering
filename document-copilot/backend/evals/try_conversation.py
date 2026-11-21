@@ -78,4 +78,12 @@ async def main(questions: list[str]) -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main(sys.argv[1:] or DEFAULT_QUESTIONS))
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:  # the normal case: run from a terminal
+        asyncio.run(main(sys.argv[1:] or DEFAULT_QUESTIONS))
+    else:
+        # An editor's Interactive window already runs an event loop, where asyncio.run()
+        # fails. Schedule on that loop instead. sys.argv holds the kernel's own flags there,
+        # so the default questions are used; for others, run `await main([...])` in a cell.
+        loop.create_task(main(DEFAULT_QUESTIONS))
