@@ -392,6 +392,20 @@ Supabase remains hosted and stores the durable retrieval data. The Railway backe
 12. Add citation validation and grounding enforcement.
 13. Add final UI for citations, source passages, empty states, and errors.
 
+## Azure content filtering
+
+The chat model runs on an Azure OpenAI deployment, and Azure screens every prompt before the
+model sees it (hate, violence, self-harm, sexual content and "jailbreak" attempts such as
+"ignore your rules"). The filter is a setting of the Azure deployment, not of this codebase,
+so behaviour can differ on another Azure resource or if the policy is changed in the portal.
+
+A blocked prompt comes back as HTTP 400 with code `content_filter`. The orchestrator turns it
+into "This question was blocked by the content filter. Please rephrase it and ask about the
+filings." and logs which filter fired (`blocked by content filter`). The filter name is not
+shown to the user. Our own defences do not depend on the filter: the instructions say only the
+system message and the analyst direct the model, and the grounding validator rejects any
+citation to a passage that was not retrieved in the turn.
+
 ## Non-Goals
 
 - No Next.js, SSR, server components, or frontend route handlers.

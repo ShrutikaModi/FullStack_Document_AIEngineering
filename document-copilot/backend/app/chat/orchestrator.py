@@ -13,7 +13,11 @@ from uuid import uuid4
 
 import structlog
 from pydantic_ai import Agent
-from pydantic_ai.exceptions import ModelAPIError, UnexpectedModelBehavior
+from pydantic_ai.exceptions import (
+    ModelAPIError,
+    ModelHTTPError,
+    UnexpectedModelBehavior,
+)
 from pydantic_ai.messages import ModelMessage, ToolCallPart
 from supabase import AsyncClient
 
@@ -32,8 +36,29 @@ GROUNDING_FAILED = (
     "I could not produce a fully sourced answer. Please try rephrasing the question."
 )
 MODEL_UNAVAILABLE = "The assistant is unavailable right now. Please try again."
+# Which Azure filter fired is logged, not shown: naming it would help someone probing the
+# system word around it, and filters can occasionally block an ordinary question.
+CONTENT_BLOCKED = (
+    "This question was blocked by the content filter. "
+    "Please rephrase it and ask about the filings."
+)
 SEARCH_FAILED = "Something went wrong while searching the filings. Please try again."
 SAVE_FAILED = "Could not save this conversation."
+
+
+def blocked_categories(error: ModelAPIError) -> list[str] | None:
+    """The Azure filters that blocked the request, or None if this is not a content block.
+
+    Azure answers a blocked prompt with HTTP 400 and code "content_filter"; the body says
+    which detectors fired (for example "jailbreak").
+    """
+    if not isinstance(error, ModelHTTPError) or error.status_code != 400:
+        return None
+    body = error.body
+    if not isinstance(body, dict) or body.get("code") != "content_filter":
+        return None
+    results = (body.get("innererror") or {}).get("content_filter_result") or {}
+    return [name for name, hit in results.items() if hit.get("filtered")]
 
 
 def describe_tool_call(name: str, args: dict[str, Any]) -> str | None:
@@ -106,7 +131,15 @@ async def run_turn(
         yield event({"type": "error", "errorText": GROUNDING_FAILED})
         yield DONE
         return
-    except ModelAPIError:
+    except ModelAPIError as error:
+        blocked = blocked_categories(error)
+        if blocked is not None:
+            log.warning(
+                "blocked by content filter", thread_id=thread["id"], filters=blocked
+            )
+            yield event({"type": "error", "errorText": CONTENT_BLOCKED})
+            yield DONE
+            return
         log.exception("model call failed", thread_id=thread["id"])
         yield event({"type": "error", "errorText": MODEL_UNAVAILABLE})
         yield DONE

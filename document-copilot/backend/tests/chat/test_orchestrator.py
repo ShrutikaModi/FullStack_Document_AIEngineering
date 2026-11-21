@@ -101,6 +101,39 @@ async def test_a_model_outage_gives_a_clear_error_and_saves_nothing():
     assert admin.tables.get("chat_messages", []) == []
 
 
+async def test_a_content_filter_block_says_so_and_does_not_name_the_filter():
+    body = {
+        "code": "content_filter",
+        "innererror": {
+            "content_filter_result": {
+                "jailbreak": {"detected": True, "filtered": True},
+                "hate": {"filtered": False, "severity": "safe"},
+            }
+        },
+    }
+
+    def blocked(messages, info):
+        raise ModelHTTPError(400, "test-model", body)
+
+    with capture_logs() as logs:
+        parsed, admin = await turn(blocked)
+    assert parsed[-2]["errorText"] == orchestrator.CONTENT_BLOCKED
+    assert "jailbreak" not in parsed[-2]["errorText"].lower()
+    assert [
+        e["filters"] for e in logs if e["event"] == "blocked by content filter"
+    ] == [["jailbreak"]]
+    assert "text-delta" not in types(parsed)
+    assert admin.tables.get("chat_messages", []) == []
+
+
+async def test_other_bad_requests_are_not_mistaken_for_content_blocks():
+    def rejected(messages, info):
+        raise ModelHTTPError(400, "test-model", {"code": "invalid_request"})
+
+    parsed, _ = await turn(rejected)
+    assert parsed[-2]["errorText"] == orchestrator.MODEL_UNAVAILABLE
+
+
 async def test_a_failing_search_gives_a_clear_error_and_saves_nothing():
     class BrokenRetriever:
         async def search(self, *args, **kwargs):
