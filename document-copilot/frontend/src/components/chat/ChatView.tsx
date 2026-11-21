@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 
 import { ChatInput } from '@/components/chat/ChatInput'
 import { MessageBubble } from '@/components/chat/MessageBubble'
+import { SourcePanel } from '@/components/chat/SourcePanel'
+import { friendlyError } from '@/lib/chat-error'
 import { createChatTransport } from '@/lib/chat-transport'
+import type { Source } from '@/lib/citations'
 
 export function ChatView({
   threadId,
@@ -16,14 +19,28 @@ export function ChatView({
   onTurnFinished: () => void
 }) {
   const [transport] = useState(createChatTransport)
+  // What the assistant is doing right now ("Searching AAPL FY2024 filings: ..."). The backend
+  // sends these as transient parts, which the chat library delivers only through onData.
+  const [progress, setProgress] = useState<string | null>(null)
   const { messages, sendMessage, status, error } = useChat({
     id: threadId,
     messages: initialMessages,
     transport,
     onFinish: onTurnFinished,
+    onData: (part) => {
+      if (part.type !== 'data-status') return
+      const { text } = (part.data ?? {}) as { text?: unknown }
+      if (typeof text === 'string') setProgress(text)
+    },
   })
+  // The source the analyst clicked; the panel beside the chat shows its passage.
+  const [openSource, setOpenSource] = useState<Source | null>(null)
   const bottom = useRef<HTMLDivElement>(null)
   const busy = status === 'submitted' || status === 'streaming'
+  // Until the verified answer starts arriving there is no text to show, only progress.
+  const last = messages[messages.length - 1]
+  const answerStarted =
+    last?.role === 'assistant' && last.parts.some((part) => part.type === 'text' && part.text)
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' })
@@ -39,12 +56,14 @@ export function ChatView({
             </p>
           )}
           {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
+            <MessageBubble key={message.id} message={message} onOpenSource={setOpenSource} />
           ))}
-          {status === 'submitted' && <p className="text-sm text-muted-foreground">Thinking…</p>}
+          {busy && !answerStarted && (
+            <p className="text-sm text-muted-foreground">{progress ?? 'Thinking…'}</p>
+          )}
           {error && (
             <p role="alert" className="text-sm text-destructive">
-              Something went wrong sending your message. Please try again.
+              {friendlyError(error)}
             </p>
           )}
           <div ref={bottom} />
@@ -52,9 +71,16 @@ export function ChatView({
       </div>
       <div className="border-t p-4">
         <div className="mx-auto max-w-2xl">
-          <ChatInput disabled={busy} onSend={(text) => sendMessage({ text })} />
+          <ChatInput
+            disabled={busy}
+            onSend={(text) => {
+              setProgress(null) // don't show the previous question's last step
+              void sendMessage({ text })
+            }}
+          />
         </div>
       </div>
+      <SourcePanel source={openSource} onClose={() => setOpenSource(null)} />
     </div>
   )
 }

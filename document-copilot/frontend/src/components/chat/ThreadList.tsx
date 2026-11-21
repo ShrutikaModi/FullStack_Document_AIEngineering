@@ -28,6 +28,9 @@ export function ThreadList({
       </div>
       <nav className="flex-1 overflow-y-auto px-2">
         {error && <p className="p-2 text-sm text-destructive">{error}</p>}
+        {threads.length === 0 && !error && (
+          <p className="p-2 text-sm text-muted-foreground">No conversations yet</p>
+        )}
         {threads.map((thread) => (
           <Link
             key={thread.id}
