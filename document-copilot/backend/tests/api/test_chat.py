@@ -3,14 +3,37 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic_ai.messages import ModelResponse, ToolCallPart
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from app.chat import orchestrator
+from app.assistant.agent import build_agent
 from app.main import app
+from tests.assistant.test_agent import FakeRetriever
 from tests.fake_supabase import FakeAdmin
+
+ANSWER = "iPhone net sales were $201,183 million [1]."
 
 ALICE, BOB = str(uuid4()), str(uuid4())
 AUTH_ALICE = {"Authorization": "Bearer alice"}
 AUTH_BOB = {"Authorization": "Bearer bob"}
+
+
+def scripted_model(messages, info: AgentInfo) -> ModelResponse:
+    """Stands in for the LLM: search once, then answer with a valid citation."""
+    already_searched = any(
+        type(part).__name__ == "ToolReturnPart" and part.tool_name == "search_filings"
+        for message in messages
+        for part in message.parts
+    )
+    if not already_searched:
+        args = {"reason": "find sales", "query": "iPhone sales", "tickers": ["AAPL"]}
+        return ModelResponse(parts=[ToolCallPart("search_filings", args)])
+    answer = {
+        "answer": ANSWER,
+        "citations": [{"label": 1, "passage_id": "P1"}],
+        "enough_evidence": True,
+    }
+    return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, answer)])
 
 
 @pytest.fixture
@@ -19,7 +42,8 @@ def admin(monkeypatch):
     fake.add_user("alice", ALICE, "alice@driftwood.com")
     fake.add_user("bob", BOB, "bob@driftwood.com")
     app.state.supabase_admin = fake
-    monkeypatch.setattr(orchestrator, "STUB_DELAY_SECONDS", 0)
+    app.state.retriever = FakeRetriever()
+    app.state.agent = build_agent(FunctionModel(scripted_model))
     return fake
 
 
@@ -94,12 +118,41 @@ def test_stream_has_the_expected_events(client):
 
     parsed = events(response)
     types = [e if isinstance(e, str) else e["type"] for e in parsed]
-    assert types[:2] == ["start", "text-start"]
-    assert types[-3:] == ["text-end", "finish", "[DONE]"]
+    # progress first, then (only after the answer is verified) the text, sources, finish
+    assert types[0] == "start" and types[1] == "data-status"
+    assert types[-4:] == ["text-end", "data-citations", "finish", "[DONE]"]
+    assert types.index("text-start") > types.index("data-status")
     deltas = "".join(
         e["delta"] for e in parsed if e != "[DONE]" and e["type"] == "text-delta"
     )
-    assert deltas.strip() == orchestrator.STUB_REPLY
+    assert deltas == ANSWER
+
+
+def test_progress_lines_are_transient_and_say_what_is_searched(client):
+    status = [
+        e
+        for e in events(ask(client, new_thread(client)))
+        if e != "[DONE]" and e["type"] == "data-status"
+    ]
+    assert status[0]["transient"] is True
+    assert "AAPL" in status[0]["data"]["text"]
+    assert "iPhone sales" in status[0]["data"]["text"]
+
+
+def test_sources_come_from_our_stored_passage_not_from_the_model(client):
+    citations = next(
+        e
+        for e in events(ask(client, new_thread(client)))
+        if e != "[DONE]" and e["type"] == "data-citations"
+    )
+    (source,) = citations["data"]["sources"]
+    assert source["label"] == 1
+    assert (source["company"], source["page"], source["fiscalYear"]) == (
+        "Apple Inc.",
+        23,
+        2024,
+    )
+    assert source["excerpt"] == "iPhone net sales were $201,183 million."
 
 
 def test_finished_turn_is_saved_in_order_and_reloads(client, admin):
@@ -111,7 +164,7 @@ def test_finished_turn_is_saved_in_order_and_reloads(client, admin):
     assert [m["role"] for m in history] == ["user", "assistant"]
     assert history[0]["parts"][0]["text"] == "What was Apple's revenue?"
     assert history[1]["id"] == streamed_id
-    assert history[1]["parts"][0]["text"] == orchestrator.STUB_REPLY
+    assert history[1]["parts"][0]["text"] == ANSWER
 
 
 def test_title_comes_from_first_question_only(client):

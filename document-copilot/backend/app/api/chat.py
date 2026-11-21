@@ -6,7 +6,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.auth.dependencies import CurrentUser, get_current_user
-from app.chat.messages import UIMessage, last_user_text, row_to_ui_message
+from app.chat.messages import (
+    HISTORY_MESSAGES,
+    UIMessage,
+    history_for_agent,
+    last_user_text,
+    row_to_ui_message,
+)
 from app.chat.orchestrator import run_turn
 from app.chat.streaming import stream_response
 from app.database import chats
@@ -66,4 +72,16 @@ async def chat_stream(
     admin = request.app.state.supabase_admin
     # Checked before streaming starts, so a bad thread is a clean 403/404.
     thread = await chats.get_owned_thread(admin, body.thread_id, user.id)
-    return stream_response(run_turn(admin, thread, last_user_text(body.messages)))
+    # Memory comes from our own database, never from the browser, so it cannot be forged.
+    # It is read before this turn is saved, so it holds only earlier messages.
+    recent = await chats.recent_messages(admin, body.thread_id, HISTORY_MESSAGES)
+    turn = run_turn(
+        admin,
+        thread,
+        last_user_text(body.messages),
+        agent=request.app.state.agent,
+        retriever=request.app.state.retriever,
+        user_id=str(user.id),
+        history=history_for_agent(recent),
+    )
+    return stream_response(turn)
