@@ -10,8 +10,10 @@ from typing import Any
 from app.assistant.deps import EvidenceLog
 from app.assistant.outputs import GroundedAnswer
 
-# Long chunks are shortened in the payload; the full text stays in the database.
-MAX_EXCERPT_CHARS = 1500
+# Stored chunks run up to about 4,300 characters (most are over 1,500), and the sentence an
+# answer relies on can sit anywhere in one. A lower limit cut the proof off, so the reader
+# could not see what the citation was for. This only guards against an unusually huge chunk.
+MAX_EXCERPT_CHARS = 5000
 
 
 def build_sources(
