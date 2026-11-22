@@ -25,9 +25,10 @@ class GroundedAnswer(BaseModel):
     # is an instruction to the model written next to the field it is filling in.
     answer: str = Field(
         description=(
-            "The reply to the analyst. Put a marker like [1] right after every factual "
-            "claim. Write [1][2], never [1, 2]. Every marker needs a matching entry in "
-            "`citations`."
+            "The reply to the analyst. Put a marker like [1] directly after the figure or "
+            "phrase each factual claim rests on, inside the sentence, never collected at "
+            "the end of a paragraph. Write [1][2], never [1, 2]. Every marker needs a "
+            "matching entry in `citations`."
         )
     )
     citations: list[Citation] = Field(
