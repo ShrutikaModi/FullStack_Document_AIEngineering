@@ -1,5 +1,6 @@
 import { ExternalLink } from 'lucide-react'
 
+import { PassageText } from '@/components/chat/PassageText'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -15,7 +16,7 @@ import { formatFilingDate, type Source } from '@/lib/citations'
 export function SourcePanel({ source, onClose }: { source: Source | null; onClose: () => void }) {
   return (
     <Sheet open={source !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="sm:max-w-lg">
+      <SheetContent side="right" className="sm:max-w-2xl">
         {source && (
           <>
             <SheetHeader>
@@ -34,10 +35,10 @@ export function SourcePanel({ source, onClose }: { source: Source | null; onClos
               <p className="mb-1 text-xs font-medium text-muted-foreground">
                 Passage from the filing
               </p>
-              {/* Raw text exactly as stored. Tables appear as plain rows separated by "|". */}
-              <blockquote className="rounded-md border bg-muted p-3 text-sm whitespace-pre-wrap">
-                {source.excerpt}
-              </blockquote>
+              {/* The stored text, with its tables shown as tables. Nothing is added or reworded. */}
+              <div className="rounded-md border bg-muted p-3">
+                <PassageText text={source.excerpt} />
+              </div>
             </div>
             <div className="border-t p-4">
               <Button
