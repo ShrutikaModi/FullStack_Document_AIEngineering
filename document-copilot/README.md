@@ -77,6 +77,15 @@ pnpm dev
 Open http://localhost:5173, sign up with an email, and ask a question about the filings. The
 corpus must be loaded first (next section) or every answer will say there is not enough evidence.
 
+**Who gets the real assistant:** only confirmed emails listed in `FULL_ACCESS_EMAILS` (in
+`backend/.env`, and in the hosting environment). Every other account is in demo mode: they can open
+three recorded sample questions (answers, steps and sources, no model call) and get a "reach out"
+message for anything they type. The decision is made on the server from the verified login. Leave
+the variable empty and everyone is in demo mode. The samples live in `backend/app/demo/recorded.py`;
+re-record them with `uv run python -m evals.record_demo` (real model calls; it retries until an answer
+passes the checks in `app/demo/checks.py`) after re-ingesting the filings, read the printed answers,
+then run `uv run pytest tests/demo`.
+
 **Logs:** each question writes a few log lines (`turn_started`, `tool_call`, `model_response`,
 `turn_finished`) that share a `request_id`, `thread_id` and `user_id`. Locally they are coloured
 and readable; on Railway set `LOG_FORMAT=json` for one JSON object per line. The question text is

@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     # NoDecode: parse the comma-separated env value ourselves instead of as JSON.
     allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
+    # Accounts (by email) allowed to use the real assistant. Everyone else gets the demo: three
+    # recorded examples and no model call, so strangers cannot run up the AI bill. Empty means
+    # everyone is in demo mode. Kept in the environment, not in code, so addresses stay out of
+    # the repository.
+    full_access_emails: Annotated[list[str], NoDecode] = []
+
     # "console": coloured, readable lines for local work. "json": one JSON object per line,
     # which is what a log search tool (and Railway's log view) can filter by field.
     log_format: Literal["console", "json"] = "console"
@@ -49,6 +55,13 @@ class Settings(BaseSettings):
     def require_direct_connection(cls, value: str) -> str:
         if "pooler.supabase.com" in value:
             raise ValueError("use the direct connection, not the transaction pooler")
+        return value
+
+    @field_validator("full_access_emails", mode="before")
+    @classmethod
+    def split_emails(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [e.strip().lower() for e in value.split(",") if e.strip()]
         return value
 
     @field_validator("allowed_origins", mode="before")

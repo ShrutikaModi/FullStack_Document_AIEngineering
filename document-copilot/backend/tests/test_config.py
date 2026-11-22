@@ -55,3 +55,12 @@ def test_log_format_defaults_to_console_and_rejects_unknown_values(
     monkeypatch.setenv("LOG_FORMAT", "xml")
     with pytest.raises(ValidationError):
         settings_cls(_env_file=None)
+
+
+def test_full_access_emails_are_split_trimmed_and_lowercased(settings_cls, monkeypatch):
+    assert settings_cls(_env_file=None).full_access_emails == []  # default: all demo
+    monkeypatch.setenv("FULL_ACCESS_EMAILS", " Owner@Example.com, other@example.com ,")
+    assert settings_cls(_env_file=None).full_access_emails == [
+        "owner@example.com",
+        "other@example.com",
+    ]

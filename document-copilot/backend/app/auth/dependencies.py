@@ -14,6 +14,9 @@ bearer = HTTPBearer(auto_error=False)
 class CurrentUser:
     id: UUID
     email: str
+    # Whether the address is confirmed, so nobody gains access by signing up with someone
+    # else's address.
+    email_confirmed: bool
     access_token: str
 
 
@@ -38,5 +41,8 @@ async def get_current_user(
         raise unauthorized("Invalid or expired token")
 
     return CurrentUser(
-        id=UUID(response.user.id), email=response.user.email, access_token=token
+        id=UUID(response.user.id),
+        email=response.user.email,
+        email_confirmed=response.user.email_confirmed_at is not None,
+        access_token=token,
     )

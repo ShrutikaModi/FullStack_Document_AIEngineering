@@ -41,6 +41,11 @@ The same search line in production (`LOG_FORMAT=json`):
 `outcome` is one of: `answered`, `grounding_failed`, `content_blocked`, `model_unavailable`,
 `search_failed`, `save_failed`, `client_disconnected` (the browser went away mid-answer).
 
+Demo accounts (not on `FULL_ACCESS_EMAILS`) write only `turn_started` (with `mode=demo`) and
+`turn_finished` with `outcome` `demo_answered` (plus `example`, the sample's id) or `demo_refused`
+(they typed their own question). There are no `model_response` or `tool_call` lines, because no
+model or search ran: if you see those for a demo account, something is wrong.
+
 `request_id` is the id of the assistant message the turn produces, so a log line can be matched
 to the saved message and to the `messageId` the browser received.
 

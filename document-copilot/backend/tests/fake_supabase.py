@@ -107,9 +107,13 @@ class FakeAdmin:
         self.auth = SimpleNamespace(get_user=self._get_user)
         self.tokens: dict[str, SimpleNamespace] = {}
 
-    def add_user(self, token: str, user_id: str, email: str):
+    def add_user(self, token: str, user_id: str, email: str, confirmed: bool = True):
         self.tokens[token] = SimpleNamespace(
-            user=SimpleNamespace(id=user_id, email=email)
+            user=SimpleNamespace(
+                id=user_id,
+                email=email,
+                email_confirmed_at="2026-01-01T00:00:00Z" if confirmed else None,
+            )
         )
 
     async def _get_user(self, token: str):

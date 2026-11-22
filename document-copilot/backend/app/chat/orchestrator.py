@@ -165,6 +165,50 @@ async def run_turn(
         structlog.contextvars.clear_contextvars()
 
 
+async def save_answered_turn(
+    admin: AsyncClient,
+    thread: Row,
+    user_text: str,
+    message_id: str,
+    asked_at: datetime,
+    text: str,
+    sources: list[dict[str, Any]],
+) -> None:
+    """Store the question and its answer, with the sources behind the answer."""
+    source_parts = (
+        [{"type": "data-citations", "data": {"sources": sources}}] if sources else []
+    )
+    user_message = {
+        "id": str(uuid4()),
+        "thread_id": thread["id"],
+        "role": "user",
+        "content": user_text,
+        "parts": [{"type": "text", "text": user_text}],
+        "created_at": asked_at.isoformat(),
+    }
+    assistant_message = {
+        "id": message_id,
+        "thread_id": thread["id"],
+        "role": "assistant",
+        "content": text,
+        # The sources are stored with the message, so a reloaded thread shows them again.
+        "parts": [{"type": "text", "text": text}, *source_parts],
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    citation_rows = [
+        {"message_id": message_id, "chunk_id": s["chunkId"], "label": s["label"]}
+        for s in sources
+    ]
+    await save_turn(
+        admin,
+        thread,
+        user_message,
+        assistant_message,
+        thread_title(user_text),
+        citation_rows,
+    )
+
+
 async def stream_turn(
     admin: AsyncClient,
     thread: Row,
@@ -232,38 +276,9 @@ async def stream_turn(
     if sources:
         yield citations_event(sources)
 
-    source_parts = (
-        [{"type": "data-citations", "data": {"sources": sources}}] if sources else []
-    )
-    user_message = {
-        "id": str(uuid4()),
-        "thread_id": thread["id"],
-        "role": "user",
-        "content": user_text,
-        "parts": [{"type": "text", "text": user_text}],
-        "created_at": asked_at.isoformat(),
-    }
-    assistant_message = {
-        "id": message_id,
-        "thread_id": thread["id"],
-        "role": "assistant",
-        "content": text,
-        # The sources are stored with the message, so a reloaded thread shows them again.
-        "parts": [{"type": "text", "text": text}, *source_parts],
-        "created_at": datetime.now(UTC).isoformat(),
-    }
-    citation_rows = [
-        {"message_id": message_id, "chunk_id": s["chunkId"], "label": s["label"]}
-        for s in sources
-    ]
     try:
-        await save_turn(
-            admin,
-            thread,
-            user_message,
-            assistant_message,
-            thread_title(user_text),
-            citation_rows,
+        await save_answered_turn(
+            admin, thread, user_text, message_id, asked_at, text, sources
         )
     except Exception:
         outcome.name = "save_failed"

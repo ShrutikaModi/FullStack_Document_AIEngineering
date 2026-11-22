@@ -7,6 +7,7 @@ from pydantic_ai.messages import ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from app.assistant.agent import build_agent
+from app.config import settings
 from app.main import app
 from tests.assistant.test_agent import FakeRetriever
 from tests.fake_supabase import FakeAdmin
@@ -41,6 +42,11 @@ def admin(monkeypatch):
     fake = FakeAdmin()
     fake.add_user("alice", ALICE, "alice@driftwood.com")
     fake.add_user("bob", BOB, "bob@driftwood.com")
+    # These tests exercise the real assistant, so their users have full access (everyone
+    # else is in demo mode: see test_demo.py).
+    monkeypatch.setattr(
+        settings, "full_access_emails", ["alice@driftwood.com", "bob@driftwood.com"]
+    )
     app.state.supabase_admin = fake
     app.state.retriever = FakeRetriever()
     app.state.agent = build_agent(FunctionModel(scripted_model))

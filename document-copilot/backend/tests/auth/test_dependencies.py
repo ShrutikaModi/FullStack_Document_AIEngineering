@@ -15,7 +15,11 @@ class FakeAuth:
         if token != "good-token":
             raise AuthApiError("invalid JWT", 403, "bad_jwt")
         return SimpleNamespace(
-            user=SimpleNamespace(id=USER_ID, email="a@driftwood.com")
+            user=SimpleNamespace(
+                id=USER_ID,
+                email="a@driftwood.com",
+                email_confirmed_at="2026-01-01T00:00:00Z",
+            )
         )
 
 

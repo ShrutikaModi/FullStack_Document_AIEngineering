@@ -5,7 +5,9 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.auth.access import has_full_access
 from app.auth.dependencies import CurrentUser, get_current_user
+from app.chat.demo_turn import run_demo_turn
 from app.chat.messages import (
     HISTORY_MESSAGES,
     UIMessage,
@@ -17,6 +19,7 @@ from app.chat.orchestrator import run_turn
 from app.chat.streaming import stream_response
 from app.database import chats
 from app.database.users import ensure_profile
+from app.demo.examples import CONTACT_URL, EXAMPLES, NOTICE_MESSAGE, NOTICE_TITLE
 
 router = APIRouter()
 
@@ -34,6 +37,26 @@ class MessageOut(BaseModel):
     id: UUID
     role: str
     parts: list[dict]
+
+
+class DemoQuestionOut(BaseModel):
+    id: str
+    company: str
+    kind: str
+    text: str
+
+
+class NoticeOut(BaseModel):
+    title: str
+    message: str
+    contact_url: str
+
+
+class DemoOut(BaseModel):
+    # True for accounts that can only use the recorded examples.
+    demo: bool
+    questions: list[DemoQuestionOut]
+    notice: NoticeOut | None
 
 
 class StreamRequest(BaseModel):
@@ -65,6 +88,23 @@ async def thread_messages(
     return [row_to_ui_message(row) for row in rows]
 
 
+@router.get("/demo")
+async def demo(user: Current) -> DemoOut:
+    """What the screen needs to run in demo mode: the sample questions and the notice."""
+    if has_full_access(user):
+        return DemoOut(demo=False, questions=[], notice=None)
+    return DemoOut(
+        demo=True,
+        questions=[
+            DemoQuestionOut(id=e.id, company=e.company, kind=e.kind, text=e.question)
+            for e in EXAMPLES
+        ],
+        notice=NoticeOut(
+            title=NOTICE_TITLE, message=NOTICE_MESSAGE, contact_url=CONTACT_URL
+        ),
+    )
+
+
 @router.post("/chat/stream")
 async def chat_stream(
     body: StreamRequest, request: Request, user: Current
@@ -72,6 +112,14 @@ async def chat_stream(
     admin = request.app.state.supabase_admin
     # Checked before streaming starts, so a bad thread is a clean 403/404.
     thread = await chats.get_owned_thread(admin, body.thread_id, user.id)
+    # The one place a question can reach the model: everyone else only gets the recorded
+    # examples. Decided here, on the server, from the verified login, so it cannot be skipped
+    # by calling the API directly.
+    if not has_full_access(user):
+        demo_turn = run_demo_turn(
+            admin, thread, last_user_text(body.messages), user_id=str(user.id)
+        )
+        return stream_response(demo_turn)
     # Memory comes from our own database, never from the browser, so it cannot be forged.
     # It is read before this turn is saved, so it holds only earlier messages.
     recent = await chats.recent_messages(admin, body.thread_id, HISTORY_MESSAGES)

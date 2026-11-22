@@ -39,7 +39,12 @@ async def temporary_user(admin):
     created = await admin.auth.admin.create_user(
         {"email": email, "password": uuid4().hex, "email_confirm": True}
     )
-    user = CurrentUser(id=UUID(created.user.id), email=email, access_token="unused")
+    user = CurrentUser(
+        id=UUID(created.user.id),
+        email=email,
+        email_confirmed=True,
+        access_token="unused",
+    )
     await ensure_profile(admin, user)
     yield user
     # Deleting the login cascades to the profile, threads, messages and citations.
