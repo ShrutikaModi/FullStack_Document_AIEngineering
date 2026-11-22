@@ -4,6 +4,7 @@ from sqlalchemy import create_engine, pool
 
 from alembic import context
 from app.config import settings
+from app.database.engine import migration_url
 from app.database.models import Base
 
 config = context.config
@@ -13,9 +14,7 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # Direct/session connection only: migrations create extensions and indexes.
-DATABASE_URL = settings.database_url.replace(
-    "postgresql://", "postgresql+psycopg://", 1
-)
+DATABASE_URL = migration_url(settings.database_url)
 
 
 def include_object(obj, name, type_, reflected, compare_to):

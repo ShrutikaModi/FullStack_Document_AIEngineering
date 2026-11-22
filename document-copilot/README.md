@@ -134,6 +134,12 @@ The integration tests and evals call the real model and database. The frontend h
 suite by project rule: check it with `pnpm tsc --noEmit -p tsconfig.app.json`, `pnpm lint` and
 `pnpm build`, then in the browser.
 
+## Deploying
+
+The frontend and backend deploy as two Vercel projects from this repository. Steps, environment
+variables and why the hosted backend uses Supabase's transaction pooler:
+[docs/deployment.md](docs/deployment.md).
+
 ## Sample SEC data
 
 `data/download.py` fetches the 10-K filings from SEC EDGAR (see "Loading the filings" for the

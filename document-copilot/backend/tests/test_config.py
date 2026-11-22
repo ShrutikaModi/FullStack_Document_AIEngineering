@@ -38,12 +38,11 @@ def test_rejects_placeholder(settings_cls, monkeypatch):
         settings_cls(_env_file=None)
 
 
-def test_rejects_pooler_url(settings_cls, monkeypatch):
-    monkeypatch.setenv(
-        "DATABASE_URL", "postgresql://u:p@aws-0.pooler.supabase.com:6543/postgres"
-    )
-    with pytest.raises(ValidationError):
-        settings_cls(_env_file=None)
+def test_the_app_accepts_the_transaction_pooler_url(settings_cls, monkeypatch):
+    # Needed when hosted: Vercel connects over IPv4 only (see database/engine.py).
+    url = "postgresql://u:p@aws-0.pooler.supabase.com:6543/postgres"
+    monkeypatch.setenv("DATABASE_URL", url)
+    assert settings_cls(_env_file=None).database_url == url
 
 
 def test_log_format_defaults_to_console_and_rejects_unknown_values(

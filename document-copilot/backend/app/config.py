@@ -19,7 +19,9 @@ class Settings(BaseSettings):
     supabase_url: AnyHttpUrl
     supabase_anon_key: str = Field(min_length=1)
     supabase_service_role_key: str = Field(min_length=1)
-    # Direct/session connection (db.<ref>.supabase.co), never the transaction pooler.
+    # Locally: the direct connection (db.<ref>.supabase.co). Hosted (Vercel connects over
+    # IPv4 only, the direct host is IPv6): Supabase's transaction pooler, port 6543.
+    # Migrations need a session, so Alembic refuses the transaction pooler (migration_url).
     database_url: str = Field(min_length=1)
 
     openai_api_key: str = Field(min_length=1)
@@ -48,13 +50,6 @@ class Settings(BaseSettings):
     def reject_placeholders(cls, value: object) -> object:
         if isinstance(value, str) and "your-" in value:
             raise ValueError("still contains a placeholder from .env.example")
-        return value
-
-    @field_validator("database_url")
-    @classmethod
-    def require_direct_connection(cls, value: str) -> str:
-        if "pooler.supabase.com" in value:
-            raise ValueError("use the direct connection, not the transaction pooler")
         return value
 
     @field_validator("full_access_emails", mode="before")
