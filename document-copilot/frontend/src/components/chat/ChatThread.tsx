@@ -1,5 +1,6 @@
 import type { UIMessage } from 'ai'
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 
 import { ChatView } from '@/components/chat/ChatView'
 import { useChatLayout } from '@/components/chat/chat-layout-context'
@@ -16,6 +17,9 @@ type State =
 export function ChatThread({ threadId }: { threadId: string }) {
   const { reloadThreads } = useChatLayout()
   const [state, setState] = useState<State>({ kind: 'loading' })
+  // A sample question picked on the start screen arrives as navigation state.
+  const picked = (useLocation().state as { question?: unknown } | null)?.question
+  const [initialQuestion] = useState(typeof picked === 'string' ? picked : undefined)
 
   useEffect(() => {
     let cancelled = false
@@ -53,6 +57,7 @@ export function ChatThread({ threadId }: { threadId: string }) {
     <ChatView
       threadId={threadId}
       initialMessages={state.messages}
+      initialQuestion={initialQuestion}
       onTurnFinished={reloadThreads}
     />
   )
